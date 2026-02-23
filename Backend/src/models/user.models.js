@@ -44,12 +44,12 @@ const userSchema = new mongoose.Schema({
     }
 },{timestamps:true});
 
-userSchema.pre("save", async function (next) {
+userSchema.pre("save", async function () {
     if (!this.isModified("password")) {
-        return next();
+        return 
     }
-    this.password = bcrypt.hash(this.password, 10);
-    next();
+    this.password = await bcrypt.hash(this.password, 10);
+    
 });
 
 userSchema.methods.isPasswordCorrect = async function (password) {
@@ -81,4 +81,4 @@ userSchema.methods.generateRefreshToken = function () {
 )
 };
 
-export const User = mongoose.Model("User", userSchema);
+export const User = mongoose.model("User", userSchema);
