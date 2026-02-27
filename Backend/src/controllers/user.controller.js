@@ -2,7 +2,7 @@ import { asyncHandler } from "../utils/asyncHandler.js"
 import { ApiError } from "../utils/ApiError.js"
 import { ApiResponse } from "../utils/ApiResponse.js"
 import { User } from "../models/user.models.js"
-import { uploadFileOnCloudinary } from "../utils/cloudinary.js"
+import { updateFileOnCloudinary, uploadFileOnCloudinary } from "../utils/cloudinary.js"
 import jwt from "jsonwebtoken"
 
 const generateAccessAndRefreshTokens = async (userId) => {
@@ -64,13 +64,19 @@ const registerUser = asyncHandler(async (req, res) => {
     throw new ApiError(500, "Avatar upload failed");
   }
 
+  if(!avatar?.public_id) {
+    throw new ApiError(500, "Avatar upload failed");
+  }
+
   const user = await User.create({
     fullName,
     username,
     email,
     password,
     avatar: avatar.url,
+    avatarPublicId: avatar.public_id,
     coverImage: coverImage?.url || "",
+    coverImagePublicId: coverImage?.public_id || "",
   })
 
   const userCreated = await User.findById(user._id).select(
@@ -265,32 +271,58 @@ user.fullName = fullName;
 });
 
 const updateUserAvatar = asyncHandler(async (req, res) => {
+  
   const avatarLocalPath = req.file?.path;
-
   if (!avatarLocalPath) {
     throw new ApiError(400, "Avatar file is missing")
   }
+  const user = await User.findById(req.user?._id).select("-password -refreshToken")
 
-  const avatar= await uploadFileOnCloudinary(avatarLocalPath)
-
-  if (!avatar.url) {
-    throw new ApiError(400, "Avatar upload failed")
+  if (!user) {
+    throw new ApiError(400, "user not found");
+  }
+  if(!user.avatarPublicId){
+    throw new ApiError(400, "AvatarId file is missing")
   }
 
-  const updatedUserAvatar = await User.findByIdAndUpdate(
-    req.user?._id,
-    {
-      $set:{
-        avatar:avatar.url
-      }
-    },
-    {
-      new:true
-    }
-  ).select("-password -refreshToken")
+  const avatar = await updateFileOnCloudinary(avatarLocalPath, user.avatarPublicId)
 
-  return res.status(200)
-  .json(new ApiResponse(200, updatedUserAvatar , "avatar updated successfully" ));
+  user.avatar = avatar.url;
+  user.avatarPublicId = avatar.public_id;
+  
+  await user.save()
+
+    return res.status(200)
+  .json(new ApiResponse(200, user , "avatar updated successfully" ));
+
+
+
+  // const avatarLocalPath = req.file?.path;
+
+  // if (!avatarLocalPath) {
+  //   throw new ApiError(400, "Avatar file is missing")
+  // }
+
+  // const avatar= await uploadFileOnCloudinary(avatarLocalPath)
+
+  // if (!avatar.url) {
+  //   throw new ApiError(400, "Avatar upload failed")
+  // }
+
+  // const updatedUserAvatar = await User.findByIdAndUpdate(
+  //   req.user?._id,
+  //   {
+  //     $set:{
+  //       avatar:avatar.url
+  //     }
+  //   },
+  //   {
+  //     new:true
+  //   }
+  // ).select("-password -refreshToken")
+
+  // return res.status(200)
+  // .json(new ApiResponse(200, updatedUserAvatar , "avatar updated successfully" ));
 });
 
 const updateUsercoverImage = asyncHandler(async (req, res) => {
@@ -300,26 +332,58 @@ const updateUsercoverImage = asyncHandler(async (req, res) => {
     throw new ApiError(400, "cover image file is missing")
   }
 
-  const coverImage= await uploadFileOnCloudinary(coverImageLocalPath)
+  const user = await User.findById(req.user?._id).select("-password -refreshToken")
 
-  if (!coverImage.url) {
-    throw new ApiError(400, "coverImage upload failed")
+  if (!user) {
+    throw new ApiError(400, "user not found");
   }
 
-  const updatedUsercoverImage = await User.findByIdAndUpdate(
-    req.user?._id,
-    {
-      $set:{
-        coverImage:coverImage.url
-      }
-    },
-    {
-      new:true
-    }
-  ).select("-password -refreshToken")
+  let coverImage;
 
-  return res.status(200)
-  .json(new ApiResponse(200, updatedUsercoverImage , "cover image updated successfully" ));
+  if ( user.coverImage === "" && user.coverImagePublicId === "") {
+     coverImage = await uploadFileOnCloudinary(coverImageLocalPath);
+    
+  } else {
+     coverImage = await updateFileOnCloudinary(coverImageLocalPath, user.coverImagePublicId);
+    
+  }
+
+  user.coverImage = coverImage.url;
+  user.coverImagePublicId = coverImage.public_id;
+
+  await user.save();
+
+    return res.status(200)
+  .json(new ApiResponse(200, user , "cover image updated successfully" ));
+
+
+  
+  // const coverImageLocalPath = req.file?.path;
+
+  // if (!coverImageLocalPath) {
+  //   throw new ApiError(400, "cover image file is missing")
+  // }
+
+  // const coverImage= await uploadFileOnCloudinary(coverImageLocalPath)
+
+  // if (!coverImage.url) {
+  //   throw new ApiError(400, "coverImage upload failed")
+  // }
+
+  // const updatedUsercoverImage = await User.findByIdAndUpdate(
+  //   req.user?._id,
+  //   {
+  //     $set:{
+  //       coverImage:coverImage.url
+  //     }
+  //   },
+  //   {
+  //     new:true
+  //   }
+  // ).select("-password -refreshToken")
+
+  // return res.status(200)
+  // .json(new ApiResponse(200, updatedUsercoverImage , "cover image updated successfully" ));
 });
 
 export { 

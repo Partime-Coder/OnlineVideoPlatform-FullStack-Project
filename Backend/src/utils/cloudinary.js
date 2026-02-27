@@ -9,9 +9,9 @@ import fs from "fs"
 
 const uploadFileOnCloudinary = async (localFilePath) => {
 
-    try {
-        if (!localFilePath) return null
+    if (!localFilePath) return null
 
+    try {
          const response = await cloudinary.uploader.upload(localFilePath, {
             resource_type:'auto',
         });
@@ -21,9 +21,41 @@ const uploadFileOnCloudinary = async (localFilePath) => {
         
     } catch (error) {
         fs.unlinkSync(localFilePath)
-         console.error("Cloudinary error:", error.message);
+         console.error("Cloudinary error while file uploading:", error.message);
+        return null
+    }
+};
+
+const updateFileOnCloudinary = async (localFilePath, publicId) => {
+
+    if (!localFilePath || !publicId) return null
+
+    try {
+         const response = await cloudinary.uploader.upload(localFilePath, {
+            resource_type:'auto',
+            public_id:publicId,
+            overwrite:true,
+            invalidate: true
+        });
+
+        fs.unlinkSync(localFilePath);
+        return response;
+        
+    } catch (error) {
+        fs.unlinkSync(localFilePath)
+         console.error("Cloudinary error while file updating:", error.message);
+        return null
+    }
+};
+
+const deleteFileOnCloudinary = async (publicId) => {
+    if (!publicId) return null;
+    try {
+        await cloudinary.uploader.destroy(publicId);
+    } catch (error) {
+        console.error("Cloudinary error while file deleting:", error.message);
         return null
     }
 }
 
-export {uploadFileOnCloudinary}
+export {uploadFileOnCloudinary, updateFileOnCloudinary, deleteFileOnCloudinary}
